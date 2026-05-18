@@ -276,9 +276,14 @@ function submitGuess() {
 let basketballCanvas;
 let basketballCtx;
 let basketballScore = 0;
-let basketballTime = 30;
+let basketballShotsNeeded = 5;
 let basketballGameActive = false;
 let basketballGameRunning = false;
+let basketballGameWon = false;
+
+// Power-up mutations
+let currentMutation = null;
+const mutations = ['normal', 'bighead', 'rainbow'];
 
 // Player ball position and velocity
 let ballX = 400;
@@ -304,9 +309,9 @@ function resetBasketball() {
     basketballCtx = basketballCanvas.getContext('2d');
     
     basketballScore = 0;
-    basketballTime = 30;
     basketballGameActive = true;
     basketballGameRunning = true;
+    basketballGameWon = false;
     ballX = 400;
     ballY = 500;
     ballVelX = 0;
@@ -314,9 +319,11 @@ function resetBasketball() {
     shootAngle = 45;
     shootPower = 50;
     
-    document.getElementById('basketballScore').textContent = '0';
-    document.getElementById('basketballTimer').textContent = '30';
-    document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
+    // Randomly select a mutation for this game
+    currentMutation = mutations[Math.floor(Math.random() * mutations.length)];
+    
+    document.getElementById('basketballScore').textContent = '0/' + basketballShotsNeeded;
+    document.getElementById('basketballStatus').textContent = `🎯 Mutation: ${getMutationName()} | Use WASD or ARROW KEYS to aim and shoot!`;
     
     // Set up key listeners
     document.addEventListener('keydown', handleBasketballKeyDown);
@@ -326,11 +333,17 @@ function resetBasketball() {
     startBasketballGameLoop();
 }
 
+function getMutationName() {
+    if (currentMutation === 'bighead') return '🗣️ BIG HEAD (2 points)';
+    if (currentMutation === 'rainbow') return '🌈 RAINBOW BALL (2 points)';
+    return '🏀 Normal Mode (1 point)';
+}
+
 function handleBasketballKeyDown(e) {
     keysPressed[e.key.toLowerCase()] = true;
     
     // Spacebar or Enter to shoot
-    if ((e.key === ' ' || e.key === 'Enter') && basketballGameActive) {
+    if ((e.key === ' ' || e.key === 'Enter') && basketballGameActive && !basketballGameWon) {
         shootBasketball();
         e.preventDefault();
     }
@@ -341,7 +354,7 @@ function handleBasketballKeyUp(e) {
 }
 
 function shootBasketball() {
-    if (!basketballGameActive) return;
+    if (!basketballGameActive || basketballGameWon) return;
     
     // Convert angle to radians
     const radians = (shootAngle * Math.PI) / 180;
@@ -355,13 +368,15 @@ function shootBasketball() {
     
     // Re-enable after ball settles
     setTimeout(() => {
-        ballX = 400;
-        ballY = 500;
-        ballVelX = 0;
-        ballVelY = 0;
-        basketballGameActive = true;
-        shootAngle = 45;
-        shootPower = 50;
+        if (!basketballGameWon) {
+            ballX = 400;
+            ballY = 500;
+            ballVelX = 0;
+            ballVelY = 0;
+            basketballGameActive = true;
+            shootAngle = 45;
+            shootPower = 50;
+        }
     }, 3000);
 }
 
@@ -406,21 +421,44 @@ function updateBasketballGame() {
         // Check if ball went in the hoop
         const distToHoop = Math.sqrt((ballX - hoopX) ** 2 + (ballY - hoopY) ** 2);
         if (distToHoop < rimRadius + ballRadius && ballY < hoopY + 30) {
-            basketballScore++;
-            document.getElementById('basketballScore').textContent = basketballScore;
-            document.getElementById('basketballStatus').textContent = '🎯 SWISH! Nice shot!';
+            // Calculate points based on mutation
+            let points = 1;
+            if (currentMutation === 'bighead' || currentMutation === 'rainbow') {
+                points = 2;
+            }
             
-            // Reset for next shot
-            setTimeout(() => {
-                ballX = 400;
-                ballY = 500;
-                ballVelX = 0;
-                ballVelY = 0;
-                basketballGameActive = true;
-                shootAngle = 45;
-                shootPower = 50;
-                document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
-            }, 1500);
+            basketballScore += points;
+            document.getElementById('basketballScore').textContent = basketballScore + '/' + basketballShotsNeeded;
+            
+            let message = '🎯 SWISH! ';
+            if (points === 2) {
+                message += '2 POINTS!';
+            } else {
+                message += '1 point!';
+            }
+            
+            document.getElementById('basketballStatus').textContent = message;
+            
+            // Check if won
+            if (basketballScore >= basketballShotsNeeded) {
+                basketballGameWon = true;
+                basketballGameActive = false;
+                document.getElementById('basketballStatus').textContent = `🏆 YOU WIN! Final Score: ${basketballScore}/${basketballShotsNeeded}`;
+            } else {
+                // Reset for next shot
+                setTimeout(() => {
+                    if (!basketballGameWon) {
+                        ballX = 400;
+                        ballY = 500;
+                        ballVelX = 0;
+                        ballVelY = 0;
+                        basketballGameActive = true;
+                        shootAngle = 45;
+                        shootPower = 50;
+                        document.getElementById('basketballStatus').textContent = `🎯 Mutation: ${getMutationName()} | Use WASD or ARROW KEYS to aim and shoot!`;
+                    }
+                }, 1500);
+            }
         }
         
         // Ball out of bounds - reset
@@ -432,7 +470,7 @@ function updateBasketballGame() {
             basketballGameActive = true;
             shootAngle = 45;
             shootPower = 50;
-            document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
+            document.getElementById('basketballStatus').textContent = `🎯 Mutation: ${getMutationName()} | Use WASD or ARROW KEYS to aim and shoot!`;
         }
     }
     
@@ -479,17 +517,35 @@ function drawBasketballGame() {
         basketballCtx.stroke();
     }
     
-    // Draw ball
-    basketballCtx.fillStyle = '#ff6600';
+    // Draw ball with mutation effects
+    if (currentMutation === 'rainbow') {
+        // Rainbow ball with gradient
+        const gradient = basketballCtx.createLinearGradient(ballX - ballRadius, ballY - ballRadius, ballX + ballRadius, ballY + ballRadius);
+        gradient.addColorStop(0, '#ff0000');
+        gradient.addColorStop(0.25, '#ffff00');
+        gradient.addColorStop(0.5, '#00ff00');
+        gradient.addColorStop(0.75, '#0000ff');
+        gradient.addColorStop(1, '#ff00ff');
+        basketballCtx.fillStyle = gradient;
+    } else {
+        basketballCtx.fillStyle = '#ff6600';
+    }
+    
+    // Draw ball with size based on mutation
+    let displayRadius = ballRadius;
+    if (currentMutation === 'bighead') {
+        displayRadius = ballRadius * 1.5;
+    }
+    
     basketballCtx.beginPath();
-    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+    basketballCtx.arc(ballX, ballY, displayRadius, 0, Math.PI * 2);
     basketballCtx.fill();
     
     // Draw ball lines
     basketballCtx.strokeStyle = '#000000';
     basketballCtx.lineWidth = 1;
     basketballCtx.beginPath();
-    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+    basketballCtx.arc(ballX, ballY, displayRadius, 0, Math.PI * 2);
     basketballCtx.stroke();
     
     // Draw aim line when aiming
@@ -529,20 +585,6 @@ function drawBasketballGame() {
     basketballCtx.font = '12px Arial';
     basketballCtx.fillText('W/↑: Angle Up  |  S/↓: Angle Down  |  A/←: Power Down  |  D/→: Power Up  |  SPACE/ENTER: Shoot', 10, basketballCanvas.height - 10);
 }
-
-// Timer for basketball game
-setInterval(() => {
-    if (basketballGameRunning && basketballTime > 0) {
-        basketballTime--;
-        document.getElementById('basketballTimer').textContent = basketballTime;
-        
-        if (basketballTime === 0) {
-            stopBasketballGame();
-            basketballGameRunning = false;
-            document.getElementById('basketballStatus').textContent = `⏰ Time's up! Final Score: ${basketballScore}`;
-        }
-    }
-}, 1000);
 
 // Allow Enter key to submit guess
 document.addEventListener('DOMContentLoaded', () => {
