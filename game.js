@@ -31,6 +31,9 @@ function playGame(gameName) {
     } else if (gameName === 'numberGuesser') {
         document.getElementById('numPlayer').textContent = currentPlayer;
         resetNumberGuesser();
+    } else if (gameName === 'basketball') {
+        document.getElementById('basketballPlayer').textContent = currentPlayer;
+        resetBasketball();
     }
 }
 
@@ -39,6 +42,7 @@ function backToGames() {
         section.classList.add('hidden');
     });
     document.getElementById('gameSelection').classList.remove('hidden');
+    stopBasketballGame();
 }
 
 // === TIC TAC TOE GAME ===
@@ -267,6 +271,278 @@ function submitGuess() {
     
     input.value = '';
 }
+
+// === BASKETBALL SHOOTING GAME ===
+let basketballCanvas;
+let basketballCtx;
+let basketballScore = 0;
+let basketballTime = 30;
+let basketballGameActive = false;
+let basketballGameRunning = false;
+
+// Player ball position and velocity
+let ballX = 400;
+let ballY = 500;
+let ballVelX = 0;
+let ballVelY = 0;
+let ballRadius = 12;
+
+// Angle and power for aiming
+let shootAngle = 45; // degrees
+let shootPower = 50; // 0-100
+
+// Hoop position
+const hoopX = 550;
+const hoopY = 150;
+const rimRadius = 20;
+
+// Keys pressed
+const keysPressed = {};
+
+function resetBasketball() {
+    basketballCanvas = document.getElementById('basketballCanvas');
+    basketballCtx = basketballCanvas.getContext('2d');
+    
+    basketballScore = 0;
+    basketballTime = 30;
+    basketballGameActive = true;
+    basketballGameRunning = true;
+    ballX = 400;
+    ballY = 500;
+    ballVelX = 0;
+    ballVelY = 0;
+    shootAngle = 45;
+    shootPower = 50;
+    
+    document.getElementById('basketballScore').textContent = '0';
+    document.getElementById('basketballTimer').textContent = '30';
+    document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
+    
+    // Set up key listeners
+    document.addEventListener('keydown', handleBasketballKeyDown);
+    document.addEventListener('keyup', handleBasketballKeyUp);
+    
+    // Start game loop
+    startBasketballGameLoop();
+}
+
+function handleBasketballKeyDown(e) {
+    keysPressed[e.key.toLowerCase()] = true;
+    
+    // Spacebar or Enter to shoot
+    if ((e.key === ' ' || e.key === 'Enter') && basketballGameActive) {
+        shootBasketball();
+        e.preventDefault();
+    }
+}
+
+function handleBasketballKeyUp(e) {
+    keysPressed[e.key.toLowerCase()] = false;
+}
+
+function shootBasketball() {
+    if (!basketballGameActive) return;
+    
+    // Convert angle to radians
+    const radians = (shootAngle * Math.PI) / 180;
+    const speed = (shootPower / 100) * 15;
+    
+    // Calculate velocity
+    ballVelX = Math.cos(radians) * speed;
+    ballVelY = -Math.sin(radians) * speed; // Negative because Y increases downward
+    
+    basketballGameActive = false;
+    
+    // Re-enable after ball settles
+    setTimeout(() => {
+        ballX = 400;
+        ballY = 500;
+        ballVelX = 0;
+        ballVelY = 0;
+        basketballGameActive = true;
+        shootAngle = 45;
+        shootPower = 50;
+    }, 3000);
+}
+
+function startBasketballGameLoop() {
+    basketballGameRunning = true;
+    updateBasketballGame();
+}
+
+function stopBasketballGame() {
+    basketballGameRunning = false;
+    document.removeEventListener('keydown', handleBasketballKeyDown);
+    document.removeEventListener('keyup', handleBasketballKeyUp);
+}
+
+function updateBasketballGame() {
+    if (!basketballGameRunning) return;
+    
+    // Update aiming
+    if (basketballGameActive) {
+        if (keysPressed['w'] || keysPressed['arrowup']) {
+            shootAngle = Math.min(shootAngle + 2, 90);
+        }
+        if (keysPressed['s'] || keysPressed['arrowdown']) {
+            shootAngle = Math.max(shootAngle - 2, 10);
+        }
+        if (keysPressed['a'] || keysPressed['arrowleft']) {
+            shootPower = Math.max(shootPower - 2, 20);
+        }
+        if (keysPressed['d'] || keysPressed['arrowright']) {
+            shootPower = Math.min(shootPower + 2, 100);
+        }
+    } else {
+        // Ball physics during flight
+        ballVelY += 0.5; // Gravity
+        ballX += ballVelX;
+        ballY += ballVelY;
+        
+        // Ball friction/air resistance
+        ballVelX *= 0.99;
+        ballVelY *= 0.99;
+        
+        // Check if ball went in the hoop
+        const distToHoop = Math.sqrt((ballX - hoopX) ** 2 + (ballY - hoopY) ** 2);
+        if (distToHoop < rimRadius + ballRadius && ballY < hoopY + 30) {
+            basketballScore++;
+            document.getElementById('basketballScore').textContent = basketballScore;
+            document.getElementById('basketballStatus').textContent = '🎯 SWISH! Nice shot!';
+            
+            // Reset for next shot
+            setTimeout(() => {
+                ballX = 400;
+                ballY = 500;
+                ballVelX = 0;
+                ballVelY = 0;
+                basketballGameActive = true;
+                shootAngle = 45;
+                shootPower = 50;
+                document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
+            }, 1500);
+        }
+        
+        // Ball out of bounds - reset
+        if (ballY > 600 || ballX < 0 || ballX > 800) {
+            ballX = 400;
+            ballY = 500;
+            ballVelX = 0;
+            ballVelY = 0;
+            basketballGameActive = true;
+            shootAngle = 45;
+            shootPower = 50;
+            document.getElementById('basketballStatus').textContent = 'Use WASD or ARROW KEYS to aim and shoot!';
+        }
+    }
+    
+    // Draw the game
+    drawBasketballGame();
+    
+    requestAnimationFrame(updateBasketballGame);
+}
+
+function drawBasketballGame() {
+    // Clear canvas
+    basketballCtx.fillStyle = '#2a5f2a';
+    basketballCtx.fillRect(0, 0, basketballCanvas.width, basketballCanvas.height);
+    
+    // Draw court lines
+    basketballCtx.strokeStyle = '#ffffff';
+    basketballCtx.lineWidth = 2;
+    basketballCtx.strokeRect(10, 10, 780, 580);
+    basketballCtx.beginPath();
+    basketballCtx.arc(400, 300, 60, 0, Math.PI * 2);
+    basketballCtx.stroke();
+    
+    // Draw backboard
+    basketballCtx.fillStyle = '#1a1a1a';
+    basketballCtx.fillRect(520, 80, 60, 80);
+    basketballCtx.strokeStyle = '#ffaa00';
+    basketballCtx.lineWidth = 2;
+    basketballCtx.strokeRect(520, 80, 60, 80);
+    
+    // Draw rim
+    basketballCtx.strokeStyle = '#ff6600';
+    basketballCtx.lineWidth = 3;
+    basketballCtx.beginPath();
+    basketballCtx.arc(hoopX, hoopY, rimRadius, 0, Math.PI * 2);
+    basketballCtx.stroke();
+    
+    // Draw net
+    basketballCtx.strokeStyle = '#cccccc';
+    basketballCtx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+        basketballCtx.beginPath();
+        basketballCtx.moveTo(hoopX - rimRadius + (i * 10), hoopY);
+        basketballCtx.lineTo(hoopX - rimRadius + (i * 7), hoopY + 40);
+        basketballCtx.stroke();
+    }
+    
+    // Draw ball
+    basketballCtx.fillStyle = '#ff6600';
+    basketballCtx.beginPath();
+    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+    basketballCtx.fill();
+    
+    // Draw ball lines
+    basketballCtx.strokeStyle = '#000000';
+    basketballCtx.lineWidth = 1;
+    basketballCtx.beginPath();
+    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+    basketballCtx.stroke();
+    
+    // Draw aim line when aiming
+    if (basketballGameActive) {
+        const radians = (shootAngle * Math.PI) / 180;
+        const lineLength = shootPower * 1.5;
+        const endX = ballX + Math.cos(radians) * lineLength;
+        const endY = ballY - Math.sin(radians) * lineLength;
+        
+        basketballCtx.strokeStyle = '#ffff00';
+        basketballCtx.lineWidth = 2;
+        basketballCtx.setLineDash([5, 5]);
+        basketballCtx.beginPath();
+        basketballCtx.moveTo(ballX, ballY);
+        basketballCtx.lineTo(endX, endY);
+        basketballCtx.stroke();
+        basketballCtx.setLineDash([]);
+        
+        // Draw power bar
+        basketballCtx.fillStyle = '#ffff00';
+        basketballCtx.fillRect(20, 530, (shootPower / 100) * 200, 20);
+        basketballCtx.strokeStyle = '#ffffff';
+        basketballCtx.lineWidth = 2;
+        basketballCtx.strokeRect(20, 530, 200, 20);
+        basketballCtx.fillStyle = '#ffffff';
+        basketballCtx.font = '12px Arial';
+        basketballCtx.fillText('Power', 20, 550);
+        
+        // Draw angle display
+        basketballCtx.fillStyle = '#ffffff';
+        basketballCtx.font = '14px Arial';
+        basketballCtx.fillText(`Angle: ${shootAngle}°`, 250, 550);
+    }
+    
+    // Draw instructions
+    basketballCtx.fillStyle = '#ffffff';
+    basketballCtx.font = '12px Arial';
+    basketballCtx.fillText('W/↑: Angle Up  |  S/↓: Angle Down  |  A/←: Power Down  |  D/→: Power Up  |  SPACE/ENTER: Shoot', 10, basketballCanvas.height - 10);
+}
+
+// Timer for basketball game
+setInterval(() => {
+    if (basketballGameRunning && basketballTime > 0) {
+        basketballTime--;
+        document.getElementById('basketballTimer').textContent = basketballTime;
+        
+        if (basketballTime === 0) {
+            stopBasketballGame();
+            basketballGameRunning = false;
+            document.getElementById('basketballStatus').textContent = `⏰ Time's up! Final Score: ${basketballScore}`;
+        }
+    }
+}, 1000);
 
 // Allow Enter key to submit guess
 document.addEventListener('DOMContentLoaded', () => {
