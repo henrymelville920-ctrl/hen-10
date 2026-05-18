@@ -299,7 +299,7 @@ let shootPower = 50; // 0-100
 // Hoop position
 const hoopX = 550;
 const hoopY = 150;
-const rimRadius = 20;
+let rimRadius = 20;
 
 // Keys pressed
 const keysPressed = {};
@@ -318,9 +318,15 @@ function resetBasketball() {
     ballVelY = 0;
     shootAngle = 45;
     shootPower = 50;
+    rimRadius = 20; // Reset to normal
     
     // Randomly select a mutation for this game
     currentMutation = mutations[Math.floor(Math.random() * mutations.length)];
+    
+    // Adjust hoop size based on mutation
+    if (currentMutation === 'bighead') {
+        rimRadius = 30; // Bigger hoop
+    }
     
     document.getElementById('basketballScore').textContent = '0/' + basketballShotsNeeded;
     document.getElementById('basketballStatus').textContent = `🎯 Mutation: ${getMutationName()} | Use WASD or ARROW KEYS to aim and shoot!`;
@@ -334,7 +340,7 @@ function resetBasketball() {
 }
 
 function getMutationName() {
-    if (currentMutation === 'bighead') return '🗣️ BIG HEAD (2 points)';
+    if (currentMutation === 'bighead') return '🗣️ BIG HEAD - Bigger Hoop! (1 point)';
     if (currentMutation === 'rainbow') return '🌈 RAINBOW BALL (2 points)';
     return '🏀 Normal Mode (1 point)';
 }
@@ -423,9 +429,10 @@ function updateBasketballGame() {
         if (distToHoop < rimRadius + ballRadius && ballY < hoopY + 30) {
             // Calculate points based on mutation
             let points = 1;
-            if (currentMutation === 'bighead' || currentMutation === 'rainbow') {
+            if (currentMutation === 'rainbow') {
                 points = 2;
             }
+            // Big head is always 1 point (easier hoop)
             
             basketballScore += points;
             document.getElementById('basketballScore').textContent = basketballScore + '/' + basketballShotsNeeded;
@@ -500,7 +507,7 @@ function drawBasketballGame() {
     basketballCtx.lineWidth = 2;
     basketballCtx.strokeRect(520, 80, 60, 80);
     
-    // Draw rim
+    // Draw rim with dynamic size based on mutation
     basketballCtx.strokeStyle = '#ff6600';
     basketballCtx.lineWidth = 3;
     basketballCtx.beginPath();
@@ -531,21 +538,16 @@ function drawBasketballGame() {
         basketballCtx.fillStyle = '#ff6600';
     }
     
-    // Draw ball with size based on mutation
-    let displayRadius = ballRadius;
-    if (currentMutation === 'bighead') {
-        displayRadius = ballRadius * 1.5;
-    }
-    
+    // Draw ball (normal size for all)
     basketballCtx.beginPath();
-    basketballCtx.arc(ballX, ballY, displayRadius, 0, Math.PI * 2);
+    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
     basketballCtx.fill();
     
     // Draw ball lines
     basketballCtx.strokeStyle = '#000000';
     basketballCtx.lineWidth = 1;
     basketballCtx.beginPath();
-    basketballCtx.arc(ballX, ballY, displayRadius, 0, Math.PI * 2);
+    basketballCtx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
     basketballCtx.stroke();
     
     // Draw aim line when aiming
